@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Cancer Detection</title>
+     <!-- Link to global.css -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/global.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/index.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Skin Cancer Detection</h1>
+            <p>Upload a clear image of your skin lesion for AI-powered analysis</p>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-step active" id="step1">
+                <span>1</span>
+                <span>Upload</span>
+            </div>
+            <div class="progress-step" id="step2">
+                <span>2</span>
+                <span>Analyze</span>
+            </div>
+            <div class="progress-step" id="step3">
+                <span>3</span>
+                <span>Results</span>
+            </div>
+        </div>
+
+        <form id="uploadForm" method="post" enctype="multipart/form-data">
+            <div class="upload-section" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-title">Choose Image</div>
+                <div class="upload-subtitle">Drag and drop or click to browse</div>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    Select Image
+                </button>
+                <input type="file" name="file" id="fileInput" class="file-input" accept="image/*" required>
+            </div>
+
+            <div class="preview-section" id="previewSection">
+                <img id="previewImage" class="preview-image" alt="Preview">
+                <div class="file-info">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-primary" id="analyzeBtn">
+                        Analyze Image
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="clearBtn">
+                        Choose Different
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="loading-section" id="loadingSection">
+            <div class="spinner"></div>
+            <h3>Analyzing image...</h3>
+            <p>Please wait</p>
+        </div>
+
+        <!-- Results only show here, with analyze another button -->
+        <div class="result-section" id="resultSection" style="display: none;">
+            <div class="result-title">Analysis Complete</div>
+            <!-- Restructured result content for proper order -->
+            <div class="result-content" id="resultContent">
+                {% if prediction %}
+                {% if filename %}
+                <img src="{{ url_for('static', filename=filename) }}" class="result-image" alt="Analyzed image">
+                {% endif %}
+                <div class="result-prediction {{ 'result-benign' if 'benign' in prediction.lower() else 'result-malignant' }}">
+                    {{ prediction }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="action-buttons">
+                <button type="button" class="btn btn-primary" onclick="resetToUpload()">
+                    Analyze Another Image
+                </button>
+            </div>
+        </div>
+
+        <div class="disclaimer">
+            <div class="disclaimer-title">Medical Disclaimer</div>
+            <p>This tool is for educational purposes only. Always consult a healthcare provider for proper medical diagnosis.</p>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const previewImage = document.getElementById('previewImage');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultSection = document.getElementById('resultSection');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    fileInput.files = files;
+                    handleFileSelect(file);
+                } else {
+                    alert('Please select an image file.');
+                }
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFileSelect(file);
+            }
+        });
+
+        function handleFileSelect(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                uploadArea.style.display = 'none';
+                previewSection.style.display = 'block';
+                
+                step1.classList.remove('active');
+                step1.classList.add('completed');
+                step2.classList.add('active');
+            };
+            reader.readAsDataURL(file);
+
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        clearBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            previewSection.style.display = 'none';
+            uploadArea.style.display = 'block';
+            
+            step1.classList.add('active');
+            step1.classList.remove('completed');
+            step2.classList.remove('active');
+            step3.classList.remove('active');
+        });
+
+        function resetToUpload() {
+            // Hide result section
+            resultSection.style.display = 'none';
+            
+            // Reset form and show upload area
+            fileInput.value = '';
+            previewSection.style.display = 'none';
+            loadingSection.style.display = 'none';
+            uploadArea.style.display = 'block';
+            
+            // Reset progress steps
+            step1.classList.add('active');
+            step1.classList.remove('completed');
+            step2.classList.remove('active', 'completed');
+            step3.classList.remove('active', 'completed');
+            
+            // Scroll to upload section
+            uploadArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        uploadForm.addEventListener('submit', (e) => {
+            if (!fileInput.files[0]) {
+                e.preventDefault();
+                alert('Please select an image file first.');
+                return;
+            }
+
+            previewSection.style.display = 'none';
+            loadingSection.style.display = 'block';
+            
+            step2.classList.remove('active');
+            step2.classList.add('completed');
+            step3.classList.add('active');
+        });
+
+        {% if prediction %}
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide loading and show results
+            loadingSection.style.display = 'none';
+            resultSection.style.display = 'block';
+            
+            // Update progress to show completion
+            step2.classList.remove('active');
+            step2.classList.add('completed');
+            step3.classList.add('active');
+            step3.classList.add('completed');
+            
+            // Hide upload and preview sections
+            uploadArea.style.display = 'none';
+            previewSection.style.display = 'none';
+            
+            // Scroll to result section
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        {% endif %}
+
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
