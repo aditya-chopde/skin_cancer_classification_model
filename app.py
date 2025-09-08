@@ -22,6 +22,19 @@ class_names = {
     6: 'Vascular Lesions'     # vasc
 }
 
+def predictSkinCaner(filePath):
+    # Preprocess the image (same as training)
+        img = load_img(filePath, target_size=(28, 28))  # Adjust size if different
+        img_array = img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # Predict
+        predictions = model.predict(img_array)
+        predicted_class_index = np.argmax(predictions, axis=1)[0]
+        predicted_class_name = class_names[predicted_class_index]
+
+        return predicted_class_name
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
@@ -36,15 +49,7 @@ def index():
         filepath = os.path.join("static", file.filename)
         file.save(filepath)
 
-        # Preprocess the image (same as training)
-        img = load_img(filepath, target_size=(28, 28))  # Adjust size if different
-        img_array = img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=0)
-
-        # Predict
-        predictions = model.predict(img_array)
-        predicted_class_index = np.argmax(predictions, axis=1)[0]
-        predicted_class_name = class_names[predicted_class_index]
+        predicted_class_name = predictSkinCaner(filepath)
 
         return render_template("index.html",
                                prediction=predicted_class_name,
@@ -56,16 +61,11 @@ def index():
 @app.route("/predict", methods=["POST"])
 def predict():
     file = request.files["file"]
-    img = load_img(file, target_size=(28, 28))
-    img_array = img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
 
-    predictions = model.predict(img_array)
-    predicted_class_index = np.argmax(predictions, axis=1)[0]
-    predicted_class_name = class_names[predicted_class_index]
+    predicted_class_name = predictSkinCaner(file)
 
     return jsonify({
-        "class_index": int(predicted_class_index),
+        # "class_index": int(predicted_class_index),
         "class_name": predicted_class_name
     })
 
